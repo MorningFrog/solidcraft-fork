@@ -95,8 +95,6 @@ fn button_appearance(ui: &Ui, response: Option<&Response>, tone: ButtonTone) -> 
     let stroke = if focused || hovered || pressed || matches!(tone, ButtonTone::Selected) {
         t.control_border_stroke(t.form_primary)
     } else if matches!(tone, ButtonTone::Primary | ButtonTone::Danger) {
-        // egui includes the stroke width in native button sizing. Keep it constant so even
-        // long primary labels cannot shift when the interaction border appears.
         t.control_border_stroke(fill)
     } else {
         t.control_border_stroke(t.control_border)
@@ -108,7 +106,13 @@ fn styled_button(ui: &Ui, label: egui::WidgetText, tone: ButtonTone) -> egui::Bu
     // Match egui's own Button lookup: its previous rectangle is hit-tested with this frame's
     // input before allocation. No extra UI scope or widget changes the button's identity.
     let response = ui.ctx().read_response(ui.next_auto_id());
-    let appearance = button_appearance(ui, response.as_ref(), tone);
+    let mut appearance = button_appearance(ui, response.as_ref(), tone);
+    if Tokens::get().borders.bevel.is_none() && !matches!(tone, ButtonTone::Selected) {
+        // Native button padding already accounts for this state's border. Preserve its width
+        // when changing the colour, or buttons outside a form grow and make toast actions wrap.
+        let state = response.as_ref().map(Response::widget_state).unwrap_or_default();
+        appearance.stroke.width = ui.style().button_style(&Default::default(), state).frame.stroke.width;
+    }
     egui::Button::new(label.color(appearance.ink)).fill(appearance.fill).stroke(appearance.stroke)
 }
 
